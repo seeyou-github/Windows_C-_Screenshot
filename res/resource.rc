@@ -1,0 +1,37 @@
+#pragma code_page(65001)
+
+#include "../src/ResourceIds.h"
+
+IDI_APP ICON "icon.ico"
+
+STRINGTABLE
+BEGIN
+    IDS_APP_TITLE "截图助手"
+    IDS_WINDOW_TITLE "截图助手 - 配置"
+    IDS_LABEL_HOTKEY "截图快捷键："
+    IDS_LABEL_CLIPBOARD "截图后复制到剪切板"
+    IDS_LABEL_SAVE_FILE "截图后保存到文件"
+    IDS_LABEL_SAVE_PATH "保存路径："
+    IDS_BUTTON_BROWSE "浏览..."
+    IDS_BUTTON_SAVE "保存配置"
+    IDS_STATUS_READY "程序正在托盘运行，可使用全局快捷键截图。"
+    IDS_STATUS_CAPTURE_HINT "按住鼠标左键拖拽选择截图区域，按 Esc 取消。"
+    IDS_TRAY_CAPTURE "截图"
+    IDS_TRAY_SETTINGS "显示配置界面"
+    IDS_TRAY_EXIT "退出"
+    IDS_MSG_SAVE_SUCCESS "配置已保存。"
+    IDS_MSG_SAVE_UNCHANGED "配置未变化，未写入配置文件。"
+    IDS_MSG_SAVE_FAILED "保存配置失败。"
+    IDS_MSG_PATH_REQUIRED "启用保存到文件时，必须指定保存路径。"
+    IDS_MSG_CAPTURE_FAILED "截图失败，请重试。"
+    IDS_MSG_CLIPBOARD_FAILED "截图已完成，但写入剪切板失败。"
+    IDS_MSG_FOLDER_DIALOG "选择截图保存目录"
+    IDS_MSG_HOTKEY_CONFLICT "快捷键注册失败，可能已被其他程序占用。"
+    IDS_MSG_HOTKEY_REGISTER_FAILED "当前快捷键注册失败。"
+    IDS_LABEL_HOTKEY_HINT "点击输入框后直接按组合键，例如 Ctrl + Shift + A"
+    IDS_STATUS_HIDDEN "程序已最小化到托盘。"
+    IDS_TRAY_TIP "截图助手"
+    IDS_DEFAULT_FILENAME_PREFIX "截图"
+    IDS_MSG_NOTHING_ENABLED "请至少启用一种输出方式：剪切板或保存到文件。"
+    IDS_MSG_SAVE_DIR_FAILED "创建截图目录失败，请检查路径权限。"
+END

@@ -12,7 +12,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     controls.dwICC = ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&controls);
 
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const HRESULT comInit = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     Gdiplus::GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken = 0;
     Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr);
@@ -24,6 +24,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (gdiplusToken != 0) {
         Gdiplus::GdiplusShutdown(gdiplusToken);
     }
-    CoUninitialize();
+    if (SUCCEEDED(comInit)) {
+        CoUninitialize();
+    }
     return result;
 }

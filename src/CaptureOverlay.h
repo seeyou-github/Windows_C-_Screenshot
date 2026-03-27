@@ -25,4 +25,5 @@ private:
     bool classRegistered_ = false;
     HBITMAP backgroundBitmap_ = nullptr;
     HBITMAP dimmedBitmap_ = nullptr;
+    HBITMAP paintBufferBitmap_ = nullptr;
 };

@@ -462,7 +462,8 @@ void MainWindow::SetEditText(HWND control, const std::wstring& value) {
 
 std::wstring MainWindow::GetEditText(HWND control) const {
     const int length = GetWindowTextLengthW(control);
-    std::wstring value(length, L'\0');
+    std::wstring value(static_cast<size_t>(length) + 1, L'\0');
     GetWindowTextW(control, value.data(), length + 1);
+    value.resize(static_cast<size_t>(length));
     return value;
 }

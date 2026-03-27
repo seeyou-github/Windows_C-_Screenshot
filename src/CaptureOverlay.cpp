@@ -144,6 +144,10 @@ bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
         DeleteObject(dimmedBitmap_);
         dimmedBitmap_ = nullptr;
     }
+    if (paintBufferBitmap_ != nullptr) {
+        DeleteObject(paintBufferBitmap_);
+        paintBufferBitmap_ = nullptr;
+    }
     backgroundBitmap_ = CaptureDesktopSnapshot(virtualScreen_);
     if (backgroundBitmap_ != nullptr) {
         HDC screenDc = GetDC(nullptr);
@@ -165,6 +169,18 @@ bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
         virtualScreen_.bottom - virtualScreen_.top,
         owner, nullptr, instance_, this);
     if (hwnd_ == nullptr) {
+        if (backgroundBitmap_ != nullptr) {
+            DeleteObject(backgroundBitmap_);
+            backgroundBitmap_ = nullptr;
+        }
+        if (dimmedBitmap_ != nullptr) {
+            DeleteObject(dimmedBitmap_);
+            dimmedBitmap_ = nullptr;
+        }
+        if (paintBufferBitmap_ != nullptr) {
+            DeleteObject(paintBufferBitmap_);
+            paintBufferBitmap_ = nullptr;
+        }
         return false;
     }
 
@@ -178,7 +194,18 @@ bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
     SetCursor(LoadCursorW(nullptr, IDC_CROSS));
 
     MSG msg {};
-    while (IsWindow(hwnd_) && GetMessageW(&msg, nullptr, 0, 0) > 0) {
+    while (IsWindow(hwnd_)) {
+        if (PeekMessageW(&msg, nullptr, WM_QUIT, WM_QUIT, PM_NOREMOVE)) {
+            accepted_ = false;
+            break;
+        }
+
+        const BOOL status = GetMessageW(&msg, hwnd_, 0, 0);
+        if (status <= 0) {
+            accepted_ = false;
+            break;
+        }
+
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
         if (!IsWindow(hwnd_)) {
@@ -269,6 +296,10 @@ LRESULT CaptureOverlay::HandleMessage(HWND hwnd, UINT message, WPARAM wParam, LP
             DeleteObject(dimmedBitmap_);
             dimmedBitmap_ = nullptr;
         }
+        if (paintBufferBitmap_ != nullptr) {
+            DeleteObject(paintBufferBitmap_);
+            paintBufferBitmap_ = nullptr;
+        }
         hwnd_ = nullptr;
         return 0;
     default:
@@ -301,22 +332,41 @@ void CaptureOverlay::Paint(HWND hwnd) {
     RECT client {};
     GetClientRect(hwnd, &client);
     HDC bufferDc = CreateCompatibleDC(dc);
-    HBITMAP bufferBitmap = CreateCompatibleBitmap(dc, client.right, client.bottom);
-    HGDIOBJ oldBufferBitmap = SelectObject(bufferDc, bufferBitmap);
+    if (bufferDc == nullptr) {
+        EndPaint(hwnd, &ps);
+        return;
+    }
+
+    const int width = client.right;
+    const int height = client.bottom;
+    if (paintBufferBitmap_ == nullptr) {
+        paintBufferBitmap_ = CreateCompatibleBitmap(dc, width, height);
+    }
+    if (paintBufferBitmap_ == nullptr) {
+        DeleteDC(bufferDc);
+        EndPaint(hwnd, &ps);
+        return;
+    }
+
+    HGDIOBJ oldBufferBitmap = SelectObject(bufferDc, paintBufferBitmap_);
 
     if (dimmedBitmap_ != nullptr) {
         HDC dimmedDc = CreateCompatibleDC(dc);
-        HGDIOBJ oldDimmed = SelectObject(dimmedDc, dimmedBitmap_);
-        BitBlt(bufferDc, 0, 0, client.right, client.bottom, dimmedDc, 0, 0, SRCCOPY);
-        SelectObject(dimmedDc, oldDimmed);
-        DeleteDC(dimmedDc);
+        if (dimmedDc != nullptr) {
+            HGDIOBJ oldDimmed = SelectObject(dimmedDc, dimmedBitmap_);
+            BitBlt(bufferDc, 0, 0, width, height, dimmedDc, 0, 0, SRCCOPY);
+            SelectObject(dimmedDc, oldDimmed);
+            DeleteDC(dimmedDc);
+        }
     } else if (backgroundBitmap_ != nullptr) {
         HDC snapshotDc = CreateCompatibleDC(dc);
-        HGDIOBJ oldSnapshot = SelectObject(snapshotDc, backgroundBitmap_);
-        BitBlt(bufferDc, 0, 0, client.right, client.bottom, snapshotDc, 0, 0, SRCCOPY);
-        SelectObject(snapshotDc, oldSnapshot);
-        DeleteDC(snapshotDc);
-        ApplyDimOverlay(bufferDc, client, 70);
+        if (snapshotDc != nullptr) {
+            HGDIOBJ oldSnapshot = SelectObject(snapshotDc, backgroundBitmap_);
+            BitBlt(bufferDc, 0, 0, width, height, snapshotDc, 0, 0, SRCCOPY);
+            SelectObject(snapshotDc, oldSnapshot);
+            DeleteDC(snapshotDc);
+            ApplyDimOverlay(bufferDc, client, 70);
+        }
     } else {
         FillRectAlpha(bufferDc, client, RGB(20, 20, 20));
     }
@@ -332,32 +382,35 @@ void CaptureOverlay::Paint(HWND hwnd) {
     if (local.left != local.right && local.top != local.bottom) {
         if (backgroundBitmap_ != nullptr) {
             HDC snapshotDc = CreateCompatibleDC(dc);
-            HGDIOBJ oldSnapshot = SelectObject(snapshotDc, backgroundBitmap_);
-            BitBlt(bufferDc,
-                local.left,
-                local.top,
-                local.right - local.left,
-                local.bottom - local.top,
-                snapshotDc,
-                local.left,
-                local.top,
-                SRCCOPY);
-            SelectObject(snapshotDc, oldSnapshot);
-            DeleteDC(snapshotDc);
+            if (snapshotDc != nullptr) {
+                HGDIOBJ oldSnapshot = SelectObject(snapshotDc, backgroundBitmap_);
+                BitBlt(bufferDc,
+                    local.left,
+                    local.top,
+                    local.right - local.left,
+                    local.bottom - local.top,
+                    snapshotDc,
+                    local.left,
+                    local.top,
+                    SRCCOPY);
+                SelectObject(snapshotDc, oldSnapshot);
+                DeleteDC(snapshotDc);
+            }
         }
 
         HPEN pen = CreatePen(PS_SOLID, 2, DarkMode::GetAccentColor());
-        HGDIOBJ oldPen = SelectObject(bufferDc, pen);
-        HGDIOBJ oldBrush = SelectObject(bufferDc, GetStockObject(HOLLOW_BRUSH));
-        Rectangle(bufferDc, local.left, local.top, local.right, local.bottom);
-        SelectObject(bufferDc, oldBrush);
-        SelectObject(bufferDc, oldPen);
-        DeleteObject(pen);
+        if (pen != nullptr) {
+            HGDIOBJ oldPen = SelectObject(bufferDc, pen);
+            HGDIOBJ oldBrush = SelectObject(bufferDc, GetStockObject(HOLLOW_BRUSH));
+            Rectangle(bufferDc, local.left, local.top, local.right, local.bottom);
+            SelectObject(bufferDc, oldBrush);
+            SelectObject(bufferDc, oldPen);
+            DeleteObject(pen);
+        }
     }
 
-    BitBlt(dc, 0, 0, client.right, client.bottom, bufferDc, 0, 0, SRCCOPY);
+    BitBlt(dc, 0, 0, width, height, bufferDc, 0, 0, SRCCOPY);
     SelectObject(bufferDc, oldBufferBitmap);
-    DeleteObject(bufferBitmap);
     DeleteDC(bufferDc);
 
     EndPaint(hwnd, &ps);

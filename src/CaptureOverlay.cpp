@@ -121,13 +121,73 @@ HBITMAP CreateDimmedBitmap(HDC referenceDc, HBITMAP sourceBitmap, int width, int
     DeleteDC(targetDc);
     return outputBitmap;
 }
+
+HBITMAP CropBitmapFromSnapshot(HBITMAP sourceBitmap, const RECT& virtualScreen, const RECT& cropRect) {
+    const int width = cropRect.right - cropRect.left;
+    const int height = cropRect.bottom - cropRect.top;
+    if (sourceBitmap == nullptr || width <= 0 || height <= 0) {
+        return nullptr;
+    }
+
+    HDC screenDc = GetDC(nullptr);
+    if (screenDc == nullptr) {
+        return nullptr;
+    }
+
+    HDC sourceDc = CreateCompatibleDC(screenDc);
+    HDC targetDc = CreateCompatibleDC(screenDc);
+    HBITMAP outputBitmap = CreateCompatibleBitmap(screenDc, width, height);
+    if (sourceDc == nullptr || targetDc == nullptr || outputBitmap == nullptr) {
+        if (outputBitmap != nullptr) {
+            DeleteObject(outputBitmap);
+        }
+        if (targetDc != nullptr) {
+            DeleteDC(targetDc);
+        }
+        if (sourceDc != nullptr) {
+            DeleteDC(sourceDc);
+        }
+        ReleaseDC(nullptr, screenDc);
+        return nullptr;
+    }
+
+    HGDIOBJ oldSource = SelectObject(sourceDc, sourceBitmap);
+    HGDIOBJ oldTarget = SelectObject(targetDc, outputBitmap);
+    const BOOL copied = BitBlt(targetDc,
+        0,
+        0,
+        width,
+        height,
+        sourceDc,
+        cropRect.left - virtualScreen.left,
+        cropRect.top - virtualScreen.top,
+        SRCCOPY);
+
+    SelectObject(targetDc, oldTarget);
+    SelectObject(sourceDc, oldSource);
+    DeleteDC(targetDc);
+    DeleteDC(sourceDc);
+    ReleaseDC(nullptr, screenDc);
+
+    if (!copied) {
+        DeleteObject(outputBitmap);
+        return nullptr;
+    }
+    return outputBitmap;
+}
 }
 
 CaptureOverlay::CaptureOverlay(HINSTANCE instance)
     : instance_(instance) {
 }
 
-bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
+CaptureOverlay::~CaptureOverlay() {
+    if (selectedBitmap_ != nullptr) {
+        DeleteObject(selectedBitmap_);
+    }
+}
+
+bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect, HBITMAP* selectedBitmap) {
     if (!EnsureClassRegistered()) {
         return false;
     }
@@ -147,6 +207,13 @@ bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
     if (paintBufferBitmap_ != nullptr) {
         DeleteObject(paintBufferBitmap_);
         paintBufferBitmap_ = nullptr;
+    }
+    if (selectedBitmap_ != nullptr) {
+        DeleteObject(selectedBitmap_);
+        selectedBitmap_ = nullptr;
+    }
+    if (selectedBitmap != nullptr) {
+        *selectedBitmap = nullptr;
     }
     backgroundBitmap_ = CaptureDesktopSnapshot(virtualScreen_);
     if (backgroundBitmap_ != nullptr) {
@@ -217,6 +284,13 @@ bool CaptureOverlay::SelectArea(HWND owner, RECT* selectedRect) {
     if (accepted_ && selectedRect != nullptr) {
         *selectedRect = NormalizeRect(selection_);
     }
+    if (accepted_ && selectedBitmap != nullptr) {
+        *selectedBitmap = selectedBitmap_;
+        selectedBitmap_ = nullptr;
+    } else if (selectedBitmap_ != nullptr) {
+        DeleteObject(selectedBitmap_);
+        selectedBitmap_ = nullptr;
+    }
     return accepted_;
 }
 
@@ -264,6 +338,14 @@ LRESULT CaptureOverlay::HandleMessage(HWND hwnd, UINT message, WPARAM wParam, LP
             dragging_ = false;
             ReleaseCapture();
             accepted_ = selection_.left != selection_.right && selection_.top != selection_.bottom;
+            if (accepted_) {
+                if (selectedBitmap_ != nullptr) {
+                    DeleteObject(selectedBitmap_);
+                    selectedBitmap_ = nullptr;
+                }
+                selectedBitmap_ = CropBitmapFromSnapshot(backgroundBitmap_, virtualScreen_, NormalizeRect(selection_));
+                accepted_ = selectedBitmap_ != nullptr;
+            }
             DestroyWindow(hwnd);
         }
         return 0;

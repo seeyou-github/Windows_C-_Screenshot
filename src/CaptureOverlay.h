@@ -5,7 +5,8 @@
 class CaptureOverlay {
 public:
     explicit CaptureOverlay(HINSTANCE instance);
-    bool SelectArea(HWND owner, RECT* selectedRect);
+    ~CaptureOverlay();
+    bool SelectArea(HWND owner, RECT* selectedRect, HBITMAP* selectedBitmap = nullptr);
 
 private:
     static LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -26,4 +27,5 @@ private:
     HBITMAP backgroundBitmap_ = nullptr;
     HBITMAP dimmedBitmap_ = nullptr;
     HBITMAP paintBufferBitmap_ = nullptr;
+    HBITMAP selectedBitmap_ = nullptr;
 };

@@ -407,11 +407,14 @@ void MainWindow::StartCapture() {
     Sleep(120);
 
     RECT area {};
-    if (!overlay_.SelectArea(hwnd_, &area)) {
+    HBITMAP selectedBitmap = nullptr;
+    if (!overlay_.SelectArea(hwnd_, &area, &selectedBitmap)) {
         return;
     }
 
-    ScreenshotResult result = screenshotService_.CaptureArea(area);
+    ScreenshotResult result {};
+    result.bitmap = selectedBitmap;
+    result.captureRect = area;
     if (result.bitmap == nullptr) {
         MessageBoxW(hwnd_, LoadStringResource(instance_, IDS_MSG_CAPTURE_FAILED).c_str(), LoadStringResource(instance_, IDS_APP_TITLE).c_str(), MB_OK | MB_ICONERROR);
         return;

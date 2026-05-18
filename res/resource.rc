@@ -34,4 +34,5 @@ BEGIN
     IDS_DEFAULT_FILENAME_PREFIX "截图"
     IDS_MSG_NOTHING_ENABLED "请至少启用一种输出方式：剪切板或保存到文件。"
     IDS_MSG_SAVE_DIR_FAILED "创建截图目录失败，请检查路径权限。"
+    IDS_MSG_ALREADY_RUNNING "程序已经在运行。"
 END
